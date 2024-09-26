@@ -1,0 +1,239 @@
+import sqlite3
+import tkinter as tk
+from tkinter import messagebox, ttk
+from datetime import datetime
+
+# Função para conectar ao banco de dados
+def connect():
+    conn = sqlite3.connect('biblioteca.db')
+    return conn
+
+# Função para criar as tabelas necessárias no banco de dados
+def create_tables():
+    conn = connect()
+    conn.execute('''CREATE TABLE IF NOT EXISTS livros (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        titulo TEXT,
+                        autor TEXT,
+                        editora TEXT,
+                        ano_publicacao INTEGER,
+                        isbn TEXT)''')
+
+    conn.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome TEXT,
+                        sobrenome TEXT,
+                        endereco TEXT,
+                        email TEXT,
+                        telefone TEXT)''')
+
+    conn.execute('''CREATE TABLE IF NOT EXISTS emprestimos (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        id_livro INTEGER,
+                        id_usuario INTEGER,
+                        data_emprestimo TEXT,
+                        data_devolucao TEXT,
+                        FOREIGN KEY(id_livro) REFERENCES livros(id),
+                        FOREIGN KEY(id_usuario) REFERENCES usuarios(id))''')
+
+    conn.commit()
+    conn.close()
+
+# Função para inserir um novo livro
+def insert_book(titulo, autor, editora, ano_publicacao, isbn):
+    conn = connect()
+    conn.execute('''INSERT INTO livros (titulo, autor, editora, ano_publicacao, isbn)
+                    VALUES (?, ?, ?, ?, ?)''',
+                 (titulo, autor, editora, ano_publicacao, isbn))
+    conn.commit()
+    conn.close()
+
+# Função para inserir um novo usuário
+def insert_user(nome, sobrenome, endereco, email, telefone):
+    conn = connect()
+    conn.execute("INSERT INTO usuarios (nome, sobrenome, endereco, email, telefone) VALUES (?, ?, ?, ?, ?)",
+                 (nome, sobrenome, endereco, email, telefone))
+    conn.commit()
+    conn.close()
+
+# Função para realizar um novo empréstimo
+def insert_loan(id_livro, id_usuario, data_emprestimo, data_devolucao):
+    conn = connect()
+    conn.execute("INSERT INTO emprestimos (id_livro, id_usuario, data_emprestimo, data_devolucao) VALUES (?, ?, ?, ?)",
+                 (id_livro, id_usuario, data_emprestimo, data_devolucao))
+    conn.commit()
+    conn.close()
+
+# Função para recuperar todos os livros atualmente emprestados
+def get_books_on_loan():
+    conn = connect()
+    result = conn.execute('''SELECT livros.titulo, usuarios.nome, usuarios.sobrenome,
+                             emprestimos.data_emprestimo, emprestimos.data_devolucao
+                             FROM livros
+                             INNER JOIN emprestimos ON livros.id = emprestimos.id_livro
+                             INNER JOIN usuarios ON usuarios.id = emprestimos.id_usuario
+                             WHERE emprestimos.data_devolucao IS NULL''').fetchall()
+    conn.close()
+    return result
+
+# Função para atualizar a data de devolução de um empréstimo
+def update_return_date(id_emprestimo, data_devolucao):
+    conn = connect()
+    conn.execute("UPDATE emprestimos SET data_devolucao = ? WHERE id = ?", (data_devolucao, id_emprestimo))
+    conn.commit()
+    conn.close()
+
+# Função para exibir mensagem
+def show_message(title, message):
+    messagebox.showinfo(title, message)
+
+# Função para inserir livro pela interface
+def insert_book_gui():
+    titulo = entry_titulo.get()
+    autor = entry_autor.get()
+    editora = entry_editora.get()
+    ano_publicacao = entry_ano.get()
+    isbn = entry_isbn.get()
+    insert_book(titulo, autor, editora, ano_publicacao, isbn)
+    show_message("Sucesso", "Livro inserido com sucesso!")
+    clear_entries()
+
+# Função para inserir usuário pela interface
+def insert_user_gui():
+    nome = entry_nome.get()
+    sobrenome = entry_sobrenome.get()
+    endereco = entry_endereco.get()
+    email = entry_email.get()
+    telefone = entry_telefone.get()
+    insert_user(nome, sobrenome, endereco, email, telefone)
+    show_message("Sucesso", "Usuário inserido com sucesso!")
+    clear_entries()
+
+# Função para realizar empréstimo pela interface
+def insert_loan_gui():
+    user_id = entry_user_id.get()
+    book_id = entry_book_id.get()
+    loan_date = datetime.now().strftime("%Y-%m-%d")
+    insert_loan(book_id, user_id, loan_date, None)
+    show_message("Sucesso", "Empréstimo realizado com sucesso!")
+
+# Função para atualizar data de devolução pela interface
+def update_return_date_gui():
+    loan_id = entry_loan_id.get()
+    return_date = entry_return_date.get()
+    update_return_date(loan_id, return_date)
+    show_message("Sucesso", "Data de devolução atualizada com sucesso!")
+
+# Função para listar livros atualmente emprestados
+def list_books_on_loan():
+    books_on_loan = get_books_on_loan()
+    if books_on_loan:
+        result = "Livros atualmente emprestados:\n"
+        for book in books_on_loan:
+            result += f"Título: {book[0]}, Usuário: {book[1]} {book[2]}, Empréstimo: {book[3]}\n"
+    else:
+        result = "Não há livros emprestados no momento."
+    
+    show_message("Livros Emprestados", result)
+
+# Função para limpar entradas
+def clear_entries():
+    entry_titulo.delete(0, tk.END)
+    entry_autor.delete(0, tk.END)
+    entry_editora.delete(0, tk.END)
+    entry_ano.delete(0, tk.END)
+    entry_isbn.delete(0, tk.END)
+    entry_nome.delete(0, tk.END)
+    entry_sobrenome.delete(0, tk.END)
+    entry_endereco.delete(0, tk.END)
+    entry_email.delete(0, tk.END)
+    entry_telefone.delete(0, tk.END)
+    entry_user_id.delete(0, tk.END)
+    entry_book_id.delete(0, tk.END)
+    entry_loan_id.delete(0, tk.END)
+    entry_return_date.delete(0, tk.END)
+
+# Cria a janela principal
+root = tk.Tk()
+root.title("Sistema de Gerenciamento de Biblioteca")
+
+# Cria as entradas e botões
+frame = tk.Frame(root)
+frame.pack(pady=10)
+
+# Inserir Livro
+tk.Label(frame, text="Título:").grid(row=0, column=0)
+entry_titulo = tk.Entry(frame)
+entry_titulo.grid(row=0, column=1)
+
+tk.Label(frame, text="Autor:").grid(row=1, column=0)
+entry_autor = tk.Entry(frame)
+entry_autor.grid(row=1, column=1)
+
+tk.Label(frame, text="Editora:").grid(row=2, column=0)
+entry_editora = tk.Entry(frame)
+entry_editora.grid(row=2, column=1)
+
+tk.Label(frame, text="Ano de Publicação:").grid(row=3, column=0)
+entry_ano = tk.Entry(frame)
+entry_ano.grid(row=3, column=1)
+
+tk.Label(frame, text="ISBN:").grid(row=4, column=0)
+entry_isbn = tk.Entry(frame)
+entry_isbn.grid(row=4, column=1)
+
+tk.Button(frame, text="Inserir Livro", command=insert_book_gui).grid(row=5, columnspan=2, pady=5)
+
+# Inserir Usuário
+tk.Label(frame, text="Nome:").grid(row=6, column=0)
+entry_nome = tk.Entry(frame)
+entry_nome.grid(row=6, column=1)
+
+tk.Label(frame, text="Sobrenome:").grid(row=7, column=0)
+entry_sobrenome = tk.Entry(frame)
+entry_sobrenome.grid(row=7, column=1)
+
+tk.Label(frame, text="Endereço:").grid(row=8, column=0)
+entry_endereco = tk.Entry(frame)
+entry_endereco.grid(row=8, column=1)
+
+tk.Label(frame, text="E-mail:").grid(row=9, column=0)
+entry_email = tk.Entry(frame)
+entry_email.grid(row=9, column=1)
+
+tk.Label(frame, text="Telefone:").grid(row=10, column=0)
+entry_telefone = tk.Entry(frame)
+entry_telefone.grid(row=10, column=1)
+
+tk.Button(frame, text="Inserir Usuário", command=insert_user_gui).grid(row=11, columnspan=2, pady=5)
+
+# Realizar Empréstimo
+tk.Label(frame, text="ID do Usuário:").grid(row=12, column=0)
+entry_user_id = tk.Entry(frame)
+entry_user_id.grid(row=12, column=1)
+
+tk.Label(frame, text="ID do Livro:").grid(row=13, column=0)
+entry_book_id = tk.Entry(frame)
+entry_book_id.grid(row=13, column=1)
+
+tk.Button(frame, text="Realizar Empréstimo", command=insert_loan_gui).grid(row=14, columnspan=2, pady=5)
+
+# Atualizar Devolução
+tk.Label(frame, text="ID do Empréstimo:").grid(row=15, column=0)
+entry_loan_id = tk.Entry(frame)
+entry_loan_id.grid(row=15, column=1)
+
+tk.Label(frame, text="Data de Devolução (YYYY-MM-DD):").grid(row=16, column=0)
+entry_return_date = tk.Entry(frame)
+entry_return_date.grid(row=16, column=1)
+
+tk.Button(frame, text="Atualizar Devolução", command=update_return_date_gui).grid(row=17, columnspan=2, pady=5)
+
+# Listar Livros Emprestados
+tk.Button(frame, text="Listar Livros Emprestados", command=list_books_on_loan).grid(row=18, columnspan=2, pady=5)
+
+# Inicializa as tabelas
+create_tables()
+
+# Inicia o loop principal da interface
+root.mainloop()
